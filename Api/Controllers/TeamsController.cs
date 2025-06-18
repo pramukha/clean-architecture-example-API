@@ -22,8 +22,8 @@ namespace Api.Controllers
         }
 
         /// <summary>
-       /// </summary>
-         /// Processes a team selection request and returns the best possible team based on required positions and skills.
+        /// </summary>
+        /// Processes a team selection request and returns the best possible team based on required positions and skills.
         /// <param name="request">The team request containing required positions and their skills</param>
         /// <returns>A team with the best available players for each position</returns>
         /// <response code="200">Returns the selected team</response>
@@ -35,29 +35,28 @@ namespace Api.Controllers
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
         public async Task<ActionResult<TeamDto>> ProcessTeam([FromBody] TeamRequestDto request)
         {
-            if (request == null)
-                return BadRequest(new ErrorResponse { Error = "Request body is required" });
+            if (request == null) return BadRequest(new ErrorResponse(StatusCodes.Status400BadRequest, "Request body is required"));
 
-            try 
+            try
             {
                 var team = await _teamService.ProcessTeamAsync(request);
                 return Ok(team);
             }
             catch (ValidationException ex)
             {
-                return BadRequest(new ErrorResponse { Error = ex.Message });
+                return BadRequest(new ErrorResponse(StatusCodes.Status400BadRequest, ex.Message));
             }
             catch (Exception)
             {
-                return StatusCode(500, new ErrorResponse { Error = "An unexpected error occurred" });
+                return StatusCode(500, new ErrorResponse(StatusCodes.Status500InternalServerError, "An unexpected error occurred"));
             }
         }
-    
-            
-        
-    
 
-        
+
+
+
+
+
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<TeamDto>>> GetAllTeams()
@@ -66,7 +65,8 @@ namespace Api.Controllers
             return Ok(teams);
         }
 
-        [HttpGet("{id}")]        public async Task<ActionResult<TeamDto>> GetTeam(int id)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<TeamDto>> GetTeam(int id)
         {
             var team = await _teamService.GetTeamByIdAsync(id);
             if (team == null)
@@ -84,6 +84,6 @@ namespace Api.Controllers
 
             return NoContent();
         }
-    
-}
+
+    }
 }

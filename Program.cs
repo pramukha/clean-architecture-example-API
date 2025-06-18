@@ -5,15 +5,39 @@ using System.IO;
 using Application.Interfaces;
 using Application.Services;
 using Infrastructure.Data;
+using Infrastructure.Middleware;
+using Infrastructure.Configuration;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.AspNetCore.Diagnostics;
-using System.Threading.Tasks;
+using Serilog;
+using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
+
+// Add configuration
+var apiSettings = builder.Configuration.GetSection("ApiSettings").Get<ApiSettings>();
+builder.Services.AddSingleton(apiSettings);
+
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DefaultPolicy", policy =>
+    {
+        policy.WithOrigins(apiSettings.AllowedOrigins.ToArray())
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 // Add AutoMapper
 builder.Services.AddAutoMapper(typeof(Application.Mappings.MappingProfile));
@@ -42,10 +66,10 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    // Add security definition for Bearer token
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    // Add security definition for API Key
+    c.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
     {
-        Description = "API key authorization using the Bearer scheme. Example: 'Bearer {token}'",
+        Description = "API key authorization using the Bearer scheme. Example: 'Bearer {api-key}'",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -60,7 +84,7 @@ builder.Services.AddSwaggerGen(c =>
                 Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
+                    Id = "ApiKey"
                 }
             },
             new string[] {}
@@ -84,6 +108,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IPlayerService, PlayerService>();
 builder.Services.AddScoped<ITeamService, TeamService>();
 
+// Add Health Checks
+builder.Services.AddHealthChecks();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -95,40 +122,61 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Exception handling middleware
-app.UseExceptionHandler(errorApp =>
-{
-    errorApp.Run(async context =>
-    {
-        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-        context.Response.ContentType = "application/json";
+// Use custom middleware
+app.UseMiddleware<ExceptionMiddleware>();
+app.UseMiddleware<RateLimitingMiddleware>();
 
-        var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
-        var exception = exceptionHandlerPathFeature?.Error;
-
-        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
-        logger.LogError(exception, "An unhandled exception occurred.");
-
-        await context.Response.WriteAsJsonAsync(new
-        {
-            StatusCode = context.Response.StatusCode,
-            Message = "An error occurred while processing your request."
-        });
-    });
-});
+// Use CORS
+app.UseCors("DefaultPolicy");
 
 app.UseRouting();
+
+// Add health check endpoint
+app.MapHealthChecks("/health");
 
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();
 });
 
+// Request logging middleware
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation(
+        "Request {method} {url} from {ip}",
+        context.Request.Method,
+        context.Request.Path,
+        context.Connection.RemoteIpAddress
+    );
+    await next();
+});
+
 // Initialize the database with sample data
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    DbInitializer.Initialize(services);
+    try
+    {
+        DbInitializer.Initialize(services);
+        Log.Information("Database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        Log.Error(ex, "An error occurred while initializing the database");
+    }
 }
 
-app.Run();
+try
+{
+    Log.Information("Starting web application");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}
