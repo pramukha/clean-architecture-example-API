@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
+using System.Linq;
 
 namespace Api.Controllers
 {
@@ -19,28 +20,27 @@ namespace Api.Controllers
         public TeamsController(ITeamService teamService)
         {
             _teamService = teamService;
-        }
-
-        /// <summary>
+        }        /// <summary>
         /// </summary>
-        /// Processes a team selection request and returns the best possible team based on required positions and skills.
-        /// <param name="request">The team request containing required positions and their skills</param>
-        /// <returns>A team with the best available players for each position</returns>
-        /// <response code="200">Returns the selected team</response>
+        /// Processes a team selection request and returns the best possible players based on required positions and skills.
+        /// <param name="requirements">List of position requirements with skills and number of players</param>
+        /// <returns>A list of best available players for each position requirement</returns>
+        /// <response code="200">Returns the selected players</response>
         /// <response code="400">If the request is invalid or players cannot be found for positions</response>
         /// <response code="500">If there was an internal server error</response>
         [HttpPost("process")]
-        [ProducesResponseType(typeof(TeamDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(List<PlayerDto>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<TeamDto>> ProcessTeam([FromBody] TeamRequestDto request)
+        public async Task<ActionResult<List<PlayerDto>>> ProcessTeam([FromBody] List<PositionRequirementDto> requirements)
         {
-            if (request == null) return BadRequest(new ErrorResponse(StatusCodes.Status400BadRequest, "Request body is required"));
+            if (requirements == null || !requirements.Any()) 
+                return BadRequest(new ErrorResponse(StatusCodes.Status400BadRequest, "Request body is required"));
 
             try
             {
-                var team = await _teamService.ProcessTeamAsync(request);
-                return Ok(team);
+                var players = await _teamService.SelectBestTeamAsync(requirements);
+                return Ok(players);
             }
             catch (ValidationException ex)
             {

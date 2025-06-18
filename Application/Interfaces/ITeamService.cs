@@ -10,5 +10,6 @@ namespace Application.Interfaces
         Task<IEnumerable<TeamDto>> GetAllTeamsAsync();
         Task<TeamDto> GetTeamByIdAsync(int id);
         Task<TeamDto> ProcessTeamAsync(TeamRequestDto request);
+        Task<List<PlayerDto>> SelectBestTeamAsync(List<PositionRequirementDto> requirements);
     }
 }

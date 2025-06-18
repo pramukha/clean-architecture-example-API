@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace Application.DTOs
@@ -10,11 +9,11 @@ namespace Application.DTOs
     public class PlayerSkillDto
     {
         /// <summary>
-        /// Name of the skill (e.g., "Pace", "Shooting", "Passing")
+        /// Name of the skill (e.g., "speed", "strength", "stamina")
         /// </summary>
-        /// <example>Pace</example>
+        /// <example>speed</example>
         [Required]
-        public int Id { get; set; }
+        public string Skill { get; set; }
 
         /// <summary>
         /// Skill value ranging from 0 to 100
@@ -22,7 +21,9 @@ namespace Application.DTOs
         /// <example>85</example>
         [Range(0, 100)]
         public int Value { get; set; }
-        public string Skill { get; set; }
+        
+        // These properties will not be included in the serialized output
+        public int Id { get; set; }
         public int PlayerId { get; set; }
     }
 
