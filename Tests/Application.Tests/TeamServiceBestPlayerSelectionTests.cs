@@ -4,7 +4,9 @@ using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
 using Application.DTOs;
+using Application.Mappings;
 using Application.Services;
+using AutoMapper;
 using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +20,7 @@ namespace Application.Tests
         private readonly ApplicationDbContext _context;
         private readonly TeamService _teamService;
         private readonly List<Player> _testPlayers;
+        private readonly IMapper _mapper;
 
         public TeamServiceBestPlayerSelectionTests()
         {
@@ -25,8 +28,15 @@ namespace Application.Tests
                 .UseInMemoryDatabase("PlayerSelectionTestDb")
                 .Options;
 
+            // Configure AutoMapper
+            var mapperConfig = new MapperConfiguration(cfg =>
+            {
+                cfg.AddProfile<MappingProfile>();
+            });
+            _mapper = mapperConfig.CreateMapper();
+
             _context = new ApplicationDbContext(_options);
-            _teamService = new TeamService(_context);
+            _teamService = new TeamService(_context, _mapper);
 
             // Create test data with controlled skill values
             _testPlayers = new List<Player>
@@ -221,7 +231,7 @@ namespace Application.Tests
             // Assert
             Assert.NotNull(result);
             Assert.Equal(4, result.Players.Count); // 2 forwards, 2 midfielders
-            
+
             var selectedForwards = result.Players.Where(p => p.Position == "forward").ToList();
             var selectedMidfielders = result.Players.Where(p => p.Position == "midfielder").ToList();
 

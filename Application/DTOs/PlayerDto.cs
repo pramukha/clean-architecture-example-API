@@ -4,31 +4,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Application.DTOs
 {
-    /// <summary>
-    /// Represents a player's skill with a name and value
-    /// </summary>
-    // public class SkillDto
-    // {
-    //     /// <summary>
-    //     /// Name of the skill (e.g., "Pace", "Shooting", "Passing")
-    //     /// </summary>
-    //     /// <example>Pace</example>
-    //     [Required]
-    //     public string Name { get; set; }
 
-    //     /// <summary>
-    //     /// Skill value ranging from 0 to 100
-    //     /// </summary>
-    //     /// <example>85</example>
-    //     [Range(0, 100)]
-    //     public int Value { get; set; }
-    // }
-
-    /// <summary>
-    /// Represents a player with their details and skills
-    /// </summary>
     public class PlayerDto
-    {        /// <summary>
+    {        
+        /// <summary>
         /// Unique identifier for the player
         /// </summary>
         /// <example>1</example>
@@ -55,6 +34,6 @@ namespace Application.DTOs
         /// </summary>
         [Required]
         public List<PlayerSkillDto> PlayerSkills { get; set; } = new List<PlayerSkillDto>();
-        // public object SkillLevel { get; internal set; }
+        
     }
 }

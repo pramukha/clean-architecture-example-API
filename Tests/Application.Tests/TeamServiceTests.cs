@@ -2,7 +2,9 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 using Application.DTOs;
+using Application.Mappings;
 using Application.Services;
+using AutoMapper;
 using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +17,7 @@ namespace Application.Tests
         private readonly DbContextOptions<ApplicationDbContext> _options;
         private readonly ApplicationDbContext _context;
         private readonly TeamService _teamService;
+        private readonly IMapper _mapper;
 
         public TeamServiceTests()
         {
@@ -22,8 +25,15 @@ namespace Application.Tests
                 .UseInMemoryDatabase("TeamServiceTestDb")
                 .Options;
 
+            // Configure AutoMapper
+            var mapperConfig = new MapperConfiguration(cfg =>
+            {
+                cfg.AddProfile<MappingProfile>();
+            });
+            _mapper = mapperConfig.CreateMapper();
+
             _context = new ApplicationDbContext(_options);
-            _teamService = new TeamService(_context);
+            _teamService = new TeamService(_context, _mapper);
 
             // Seed test data
             SeedTestData();
@@ -110,7 +120,7 @@ namespace Application.Tests
             };
 
             // Act & Assert
-            await Assert.ThrowsAsync<ValidationException>(() => 
+            await Assert.ThrowsAsync<ValidationException>(() =>
                 _teamService.ProcessTeamAsync(request));
         }
     }

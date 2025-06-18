@@ -1,6 +1,9 @@
 using System;
 using System.Threading.Tasks;
+using Application.DTOs;
+using Application.Mappings;
 using Application.Services;
+using AutoMapper;
 using Domain.Entities;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +16,7 @@ namespace Application.Tests
         private readonly DbContextOptions<ApplicationDbContext> _options;
         private readonly ApplicationDbContext _context;
         private readonly PlayerService _playerService;
+        private readonly IMapper _mapper;
 
         public PlayerServiceTests()
         {
@@ -20,8 +24,15 @@ namespace Application.Tests
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
                 .Options;
 
+            // Configure AutoMapper
+            var mapperConfig = new MapperConfiguration(cfg =>
+            {
+                cfg.AddProfile<MappingProfile>();
+            });
+            _mapper = mapperConfig.CreateMapper();
+
             _context = new ApplicationDbContext(_options);
-            _playerService = new PlayerService(_context);
+            _playerService = new PlayerService(_context, _mapper);
         }
 
         [Fact]
@@ -29,7 +40,8 @@ namespace Application.Tests
         {
             // Arrange
             var player = new Player
-            {                    Id = 1,
+            {
+                Id = 1,
                 Name = "Test Player",
                 Position = "Forward"
             };

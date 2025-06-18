@@ -1,0 +1,16 @@
+Bearer SkFabTZibXE1aE14ckpQUUxHc2dnQ2RzdlFRTTM2NFE2cGI4d3RQNjZmdEFITmdBQkE=
+
+
+https://localhost:60339/swagger/index.html
+
+
+https://github.com/git-guides/install-git
+
+
+git clone https://pramukha-wijerathne-IrU6@git.codeaid.io/thankyoupayroll-co-2325/pramukha-wijerathne-IrU6-player-team-generator-web-api-7jsZ.git
+
+
+3a090abca290ab40a8480b4a7c73769459e85e26
+
+
+git push origin master

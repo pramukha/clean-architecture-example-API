@@ -1,3 +1,4 @@
+using AutoMapper;
 using Application.DTOs;
 using Application.Interfaces;
 using Domain.Entities;
@@ -14,10 +15,12 @@ namespace Application.Services
     public class TeamService : ITeamService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IMapper _mapper;
 
-        public TeamService(ApplicationDbContext context)
+        public TeamService(ApplicationDbContext context, IMapper mapper)
         {
             _context = context;
+            _mapper = mapper;
         }
 
         public async Task<TeamDto> ProcessTeamAsync(TeamRequestDto request)
@@ -32,7 +35,7 @@ namespace Application.Services
                 foreach (var requiredSkill in position.Value)
                 {
                     var player = await SelectBestPlayerForPosition(position.Key, requiredSkill, selectedPlayers);
-                    
+
                     if (player == null)
                     {
                         errors.Add($"No available player for position {position.Key} with skill {requiredSkill}");
@@ -75,48 +78,17 @@ namespace Application.Services
             if (team == null)
                 return null;
 
-            return new TeamDto
-            {
-                Id = team.Id,
-                Name = team.Name,
-                Players = team.Players.Select(p => new PlayerDto
-                {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Position = p.Position,
-                    PlayerSkills = p.PlayerSkills.Select(s => new PlayerSkillDto
-                    {
-                        Id = s.Id,
-                        Skill = s.Skill,
-                        Value = s.Value,
-                        PlayerId = s.PlayerId
-                    }).ToList()
-                }).ToList()
-            };
+            return _mapper.Map<TeamDto>(team);
         }
 
         public async Task<IEnumerable<TeamDto>> GetAllTeamsAsync()
         {
             var teams = await _context.Teams
                 .Include(t => t.Players)
+                    .ThenInclude(p => p.PlayerSkills)
                 .ToListAsync();
 
-            return teams.Select(t => new TeamDto
-            {
-                Id = t.Id,
-                Name = t.Name,
-                Players = t.Players.Select(p => new PlayerDto
-                {                    
-                    Id = p.Id,
-                    Name = p.Name,
-                    Position = p.Position,
-                    PlayerSkills = p.PlayerSkills.Select(s => new PlayerSkillDto
-                    {
-                        Skill = s.Skill,
-                        Value = s.Value
-                    }).ToList()
-                }).ToList()
-            });
+            return _mapper.Map<IEnumerable<TeamDto>>(teams);
         }
 
         public async Task<bool> DeleteTeamAsync(int id)
@@ -149,34 +121,16 @@ namespace Application.Services
         }
 
         private async Task<Player> SelectBestPlayerForPosition(string position, string requiredSkill, List<Player> selectedPlayers)
-        {            var availablePlayers = await _context.Players
+        {
+            var availablePlayers = await _context.Players
                 .Include(p => p.PlayerSkills)
-                .Where(p => p.Position == position && !selectedPlayers.Contains(p))
+                .Where(p => p.Position.ToLower() == position.ToLower() && !selectedPlayers.Contains(p))
                 .ToListAsync();
 
             return availablePlayers
-                .OrderByDescending(p => p.PlayerSkills.FirstOrDefault(s => s.Skill == requiredSkill)?.Value ?? 0)
+                .OrderByDescending(p => p.PlayerSkills.FirstOrDefault(s => s.Skill.ToLower() == requiredSkill.ToLower())?.Value ?? 0)
+                .ThenByDescending(p => p.PlayerSkills.Average(s => s.Value)) // Use average skill as tiebreaker
                 .FirstOrDefault();
         }
-
-        private TeamDto MapToTeamDto(Team team)
-        {
-            return new TeamDto
-            {
-                Id = team.Id,
-                Players = team.Players.Select(p => new PlayerDto
-                {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Position = p.Position,
-                    PlayerSkills = p.PlayerSkills.Select(s => new PlayerSkillDto
-                    {
-                        Skill = s.Skill,
-                        Value = s.Value
-                    }).ToList()
-                }).ToList()
-            };
-        }
-
     }
 }
