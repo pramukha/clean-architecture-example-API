@@ -27,25 +27,6 @@ builder.Services.AddControllers()
 
 builder.Services.AddEndpointsApiExplorer();
 
-// Add Authentication
-builder.Services.AddAuthentication("Bearer")
-    .AddJwtBearer(options =>
-    {
-        options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
-        {
-            OnTokenValidated = context =>
-            {
-                // Validate against our hardcoded token
-                var token = context.Request.Headers["Authorization"].ToString().Replace("Bearer ", "");
-                if (token != "SkFabTZibXE1aE14ckpQUUxHc2dnQ2RzdlFRTTM2NFE2cGI4d3RQNjZmdEFITmdBQkE=")
-                {
-                    context.Fail("Invalid token");
-                }
-                return Task.CompletedTask;
-            }
-        };
-    });
-
 // Swagger configuration
 builder.Services.AddSwaggerGen(c =>
 {
@@ -64,7 +45,7 @@ builder.Services.AddSwaggerGen(c =>
     // Add security definition for Bearer token
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer [token]'",
+        Description = "API key authorization using the Bearer scheme. Example: 'Bearer {token}'",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -86,32 +67,22 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    try
+    // XML Documentation
+    var xmlFile = "csharp-backend-app.xml";
+    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    if (File.Exists(xmlPath))
     {
-        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-        if (File.Exists(xmlPath))
-        {
-            c.IncludeXmlComments(xmlPath);
-        }
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"Warning: Could not load XML comments file: {ex.Message}");
+        c.IncludeXmlComments(xmlPath);
     }
 });
 
-// Add database context (in-memory for development)
+// Configure DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseInMemoryDatabase("TeamGeneratorDb"));
+    options.UseInMemoryDatabase("PlayerTeamDb"));
 
-// Add application services
-builder.Services.AddScoped<ITeamService, TeamService>();
+// Register services
 builder.Services.AddScoped<IPlayerService, PlayerService>();
-
-// Add logging
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
+builder.Services.AddScoped<ITeamService, TeamService>();
 
 var app = builder.Build();
 
@@ -124,50 +95,40 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Add authentication middleware before authorization
-app.UseAuthentication();
-app.UseAuthorization();
-
-// Global exception handler
+// Exception handling middleware
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
     {
-        context.Response.StatusCode = 500;
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
 
-        var errorFeature = context.Features.Get<IExceptionHandlerFeature>();
-        if (errorFeature != null)
-        {
-            var ex = errorFeature.Error;
-            var errorResponse = new
-            {
-                StatusCode = context.Response.StatusCode,
-                Message = "Internal Server Error. Please try again later."
-            };
+        var exceptionHandlerPathFeature = context.Features.Get<IExceptionHandlerPathFeature>();
+        var exception = exceptionHandlerPathFeature?.Error;
 
-            await context.Response.WriteAsync(
-                System.Text.Json.JsonSerializer.Serialize(errorResponse));
-        }
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(exception, "An unhandled exception occurred.");
+
+        await context.Response.WriteAsJsonAsync(new
+        {
+            StatusCode = context.Response.StatusCode,
+            Message = "An error occurred while processing your request."
+        });
     });
 });
 
-// Map controllers
-app.MapControllers();
+app.UseRouting();
 
-// Seed the in-memory database
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+});
+
+// Initialize the database with sample data
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    try
-    {
-        DbInitializer.Initialize(services);
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred while seeding the database.");
-    }
+    DbInitializer.Initialize(services);
 }
 
 app.Run();

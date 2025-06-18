@@ -52,17 +52,35 @@ namespace Api.Controllers
                 return NotFound();
 
             return NoContent();
-        }
-
+        }        
         /// <summary>
-        /// Deletes a player by ID
+        /// Deletes a player by ID. Requires authentication token.
         /// </summary>
         /// <param name="id">The ID of the player to delete</param>
-        /// <returns>No content if successful, NotFound if player doesn't exist</returns>
-        [Authorize]
+        /// <returns>No content if successful, NotFound if player doesn't exist, Unauthorized if not authenticated</returns>
+        /// <response code="204">Player was successfully deleted</response>
+        /// <response code="401">Not authenticated or invalid token</response>
+        /// <response code="404">Player with given ID was not found</response>
         [HttpDelete("{id}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeletePlayer(int id)
         {
+            // Check for the Authorization header
+            var authHeader = Request.Headers["Authorization"].ToString();
+            if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+            {
+                return Unauthorized("Authorization header with Bearer token is required");
+            }
+
+            // Extract and validate the token
+            var token = authHeader.Replace("Bearer ", "");
+            if (token != "SkFabTZibXE1aE14ckpQUUxHc2dnQ2RzdlFRTTM2NFE2cGI4d3RQNjZmdEFITmdBQkE=")
+            {
+                return Unauthorized("Invalid token");
+            }
+
             var result = await _playerService.DeletePlayerAsync(id);
             if (!result)
                 return NotFound();
